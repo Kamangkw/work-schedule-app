@@ -157,7 +157,7 @@ header h1 {
 /* ===== 統計卡片 ===== */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
 }
 
@@ -179,10 +179,8 @@ header h1 {
     margin-top: 4px;
 }
 
-.stat-work .stat-number { color: #27ae60; }
-.stat-holiday .stat-number { color: #e74c3c; }
+.stat-work .stat-number { color: #888; }
 .stat-off .stat-number { color: #f39c12; }
-.stat-weekend .stat-number { color: #95a5a6; }
 
 /* ===== 日曆 ===== */
 .calendar-header {
@@ -219,10 +217,10 @@ header h1 {
     display: inline-block;
 }
 
-.dot-work { background: #27ae60; }
-.dot-holiday { background: #e74c3c; }
+.dot-work { background: #ccc; }
+.dot-empty { background: #e1e1e1; }
 .dot-user-off { background: #f39c12; }
-.dot-weekend { background: #95a5a6; }
+.dot-weekend { background: #ccc; }
 
 .calendar-weekdays {
     display: grid;
@@ -271,15 +269,15 @@ header h1 {
 }
 
 .calendar-day.work {
-    background: #d4edda;
-    color: #155724;
-    border-color: #27ae60;
+    background: #f8f9fa;
+    color: #ccc;
+    border-color: #e1e1e1;
 }
 
-.calendar-day.holiday {
-    background: #f8d7da;
-    color: #721c24;
-    border-color: #e74c3c;
+.calendar-day.empty {
+    background: #fafafa;
+    color: #ccc;
+    border-color: #e1e1e1;
 }
 
 .calendar-day.user_off {
@@ -294,10 +292,7 @@ header h1 {
     border-color: #95a5a6;
 }
 
-/* 公眾假期：紅色左邊框標示 */
-.calendar-day.holiday {
-    border-left: 4px solid #e74c3c !important;
-}
+
 
 .calendar-day .day-label {
     font-size: 9px;
@@ -310,13 +305,6 @@ header h1 {
     white-space: nowrap;
     max-width: 100%;
     padding: 0 2px;
-}
-
-.holiday-tag {
-    font-size: 8px;
-    color: #e74c3c;
-    font-weight: bold;
-    margin-top: 1px;
 }
 
 .calendar-day.today {

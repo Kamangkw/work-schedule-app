@@ -242,29 +242,16 @@ def get_calendar(year, month):
             continue
 
         d = date(year, month, day)
-        is_holiday = d in MACAU_HOLIDAYS
         is_user_off = d in user_off_dates
-        is_weekend = d.weekday() >= 5
 
-        # 用戶標記優先，否則跟常態
-        if is_user_off:
-            status = "user_off"
-            label = "放假"
-        elif is_weekend:
-            status = "weekend"
-            label = "週末"
-        else:
-            status = "work"
-            label = "返工"
+        status = "user_off" if is_user_off else "empty"
+        label = "放假" if is_user_off else ""
 
         days.append({
             "day": day,
             "date": d.isoformat(),
             "status": status,
             "label": label,
-            "is_holiday": is_holiday,
-            "holiday_name": MACAU_HOLIDAYS.get(d) if is_holiday else None,
-            "is_weekend": is_weekend,
         })
 
     return jsonify({
@@ -355,9 +342,7 @@ def get_summary(year, month):
         end_date = date(year, month + 1, 1) - timedelta(days=1)
 
     work_days = 0
-    holiday_days = 0
     user_off_days = 0
-    weekend_days = 0
 
     user_days_off = DayOff.query.filter(
         DayOff.user_id == user_id,
@@ -368,28 +353,17 @@ def get_summary(year, month):
 
     d = start_date
     while d <= end_date:
-        is_holiday = d in MACAU_HOLIDAYS
-        is_user_off = d in user_off_dates
-        is_weekend = d.weekday() >= 5
-
-        if is_holiday:
-            holiday_days += 1
-        elif is_user_off:
+        if d in user_off_dates:
             user_off_days += 1
-        elif is_weekend:
-            weekend_days += 1
         else:
             work_days += 1
-
         d += timedelta(days=1)
 
     return jsonify({
         "year": year,
         "month": month,
         "work_days": work_days,
-        "holiday_days": holiday_days,
         "user_off_days": user_off_days,
-        "weekend_days": weekend_days,
     })
 
 

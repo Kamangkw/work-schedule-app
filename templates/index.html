@@ -40,19 +40,11 @@
             <div class="stats-grid" id="stats-grid">
                 <div class="stat-card stat-work">
                     <div class="stat-number" id="stat-work">0</div>
-                    <div class="stat-label">工作日</div>
-                </div>
-                <div class="stat-card stat-holiday">
-                    <div class="stat-number" id="stat-holiday">0</div>
-                    <div class="stat-label">公眾假期</div>
+                    <div class="stat-label">總天數</div>
                 </div>
                 <div class="stat-card stat-off">
                     <div class="stat-number" id="stat-off">0</div>
-                    <div class="stat-label">已標記放假</div>
-                </div>
-                <div class="stat-card stat-weekend">
-                    <div class="stat-number" id="stat-weekend">0</div>
-                    <div class="stat-label">週末</div>
+                    <div class="stat-label">放假日</div>
                 </div>
             </div>
         </section>
@@ -67,10 +59,8 @@
 
             <!-- 圖例 -->
             <div class="legend">
-                <span class="legend-item"><span class="dot dot-work"></span>返工</span>
-                <span class="legend-item"><span class="dot dot-holiday"></span>公眾假期</span>
+                <span class="legend-item"><span class="dot dot-empty"></span>空白（預設）</span>
                 <span class="legend-item"><span class="dot dot-user-off"></span>放假</span>
-                <span class="legend-item"><span class="dot dot-weekend"></span>週末</span>
             </div>
 
             <!-- 星期抬頭 -->
@@ -88,9 +78,8 @@
             <ul class="info-list">
                 <li>👆 點擊任何日期可以標記為放假</li>
                 <li>👆 再次點擊已放假日期可以取消標記</li>
-                <li>🔴 紅色 = 公眾假期（澳門）</li>
-                <li>🟡 黃色 = 週末</li>
-                <li>🟢 綠色 = 返工日</li>
+                <li>🟡 黃色 = 已標記放假</li>
+                <li>⬜ 空白 = 預設（不是放假）</li>
             </ul>
         </section>
     </div>

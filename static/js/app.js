@@ -114,7 +114,7 @@ async function loadMonth(year, month) {
         if (d.day === null) continue;
 
         const el = document.createElement('div');
-        el.className = `calendar-day ${d.status}${d.is_holiday ? ' holiday' : ''}`;
+        el.className = `calendar-day ${d.status}`;
         el.dataset.date = d.date;
 
         if (d.date === today.toISOString().split('T')[0]) {
@@ -123,8 +123,7 @@ async function loadMonth(year, month) {
 
         el.innerHTML = `
             <span>${d.day}</span>
-            <span class="day-label">${d.label}</span>
-            ${d.is_holiday ? `<span class="holiday-tag">${d.holiday_name}</span>` : ''}
+            ${d.label ? `<span class="day-label">${d.label}</span>` : ''}
         `;
 
         el.addEventListener('click', () => toggleDay(d));
@@ -186,9 +185,7 @@ async function loadSummary() {
     const data = await res.json();
 
     document.getElementById('stat-work').textContent = data.work_days;
-    document.getElementById('stat-holiday').textContent = data.holiday_days;
     document.getElementById('stat-off').textContent = data.user_off_days;
-    document.getElementById('stat-weekend').textContent = data.weekend_days;
 }
 
 // ===== 工具 =====
