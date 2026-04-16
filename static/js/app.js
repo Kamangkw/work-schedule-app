@@ -114,7 +114,7 @@ async function loadMonth(year, month) {
         if (d.day === null) continue;
 
         const el = document.createElement('div');
-        el.className = `calendar-day ${d.status}`;
+        el.className = `calendar-day ${d.status}${d.is_holiday ? ' holiday' : ''}`;
         el.dataset.date = d.date;
 
         if (d.date === today.toISOString().split('T')[0]) {
@@ -124,6 +124,7 @@ async function loadMonth(year, month) {
         el.innerHTML = `
             <span>${d.day}</span>
             <span class="day-label">${d.label}</span>
+            ${d.is_holiday ? `<span class="holiday-tag">${d.holiday_name}</span>` : ''}
         `;
 
         el.addEventListener('click', () => toggleDay(d));
@@ -132,12 +133,6 @@ async function loadMonth(year, month) {
 }
 
 async function toggleDay(d) {
-    // 公眾假期唔可以改
-    if (d.is_holiday) {
-        showToast(`${d.day}日是公眾假期：${d.label}`, 'error');
-        return;
-    }
-
     const isUserOff = d.status === 'user_off';
 
     if (isUserOff) {

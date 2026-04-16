@@ -246,10 +246,8 @@ def get_calendar(year, month):
         is_user_off = d in user_off_dates
         is_weekend = d.weekday() >= 5
 
-        if is_holiday:
-            status = "holiday"
-            label = MACAU_HOLIDAYS[d]
-        elif is_user_off:
+        # 用戶標記優先，否則跟常態
+        if is_user_off:
             status = "user_off"
             label = "放假"
         elif is_weekend:
@@ -265,6 +263,7 @@ def get_calendar(year, month):
             "status": status,
             "label": label,
             "is_holiday": is_holiday,
+            "holiday_name": MACAU_HOLIDAYS.get(d) if is_holiday else None,
             "is_weekend": is_weekend,
         })
 

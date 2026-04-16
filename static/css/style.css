@@ -294,6 +294,11 @@ header h1 {
     border-color: #95a5a6;
 }
 
+/* 公眾假期：紅色左邊框標示 */
+.calendar-day.holiday {
+    border-left: 4px solid #e74c3c !important;
+}
+
 .calendar-day .day-label {
     font-size: 9px;
     color: inherit;
@@ -305,6 +310,13 @@ header h1 {
     white-space: nowrap;
     max-width: 100%;
     padding: 0 2px;
+}
+
+.holiday-tag {
+    font-size: 8px;
+    color: #e74c3c;
+    font-weight: bold;
+    margin-top: 1px;
 }
 
 .calendar-day.today {
