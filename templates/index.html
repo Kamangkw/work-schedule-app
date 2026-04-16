@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作排班系統</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- 登入畫面 -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-box">
+            <h1>📅 澳門工作排班系統</h1>
+            <p>請輸入你的名字開始使用</p>
+            <form id="login-form">
+                <input type="text" id="login-name" placeholder="輸入姓名" required>
+                <button type="submit" class="btn btn-primary">開始使用</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 主應用畫面 -->
+    <div id="app-screen" class="container" style="display: none;">
+        <header>
+            <div class="header-content">
+                <div>
+                    <h1>📅 工作排班系統</h1>
+                    <p class="subtitle">記錄你的工作與放假日程</p>
+                </div>
+                <div class="user-info">
+                    <span id="user-name-display">用戶</span>
+                    <button class="btn btn-small" onclick="logout()">登出</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 統計面板 -->
+        <section class="panel">
+            <h2>📊 本月統計</h2>
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-card stat-work">
+                    <div class="stat-number" id="stat-work">0</div>
+                    <div class="stat-label">工作日</div>
+                </div>
+                <div class="stat-card stat-holiday">
+                    <div class="stat-number" id="stat-holiday">0</div>
+                    <div class="stat-label">公眾假期</div>
+                </div>
+                <div class="stat-card stat-off">
+                    <div class="stat-number" id="stat-off">0</div>
+                    <div class="stat-label">已標記放假</div>
+                </div>
+                <div class="stat-card stat-weekend">
+                    <div class="stat-number" id="stat-weekend">0</div>
+                    <div class="stat-label">週末</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 月曆面板 -->
+        <section class="panel">
+            <div class="calendar-header">
+                <button class="btn btn-nav" onclick="changeMonth(-1)">◀</button>
+                <h2 id="calendar-title">2026年4月</h2>
+                <button class="btn btn-nav" onclick="changeMonth(1)">▶</button>
+            </div>
+
+            <!-- 圖例 -->
+            <div class="legend">
+                <span class="legend-item"><span class="dot dot-work"></span>返工</span>
+                <span class="legend-item"><span class="dot dot-holiday"></span>公眾假期</span>
+                <span class="legend-item"><span class="dot dot-user-off"></span>放假</span>
+                <span class="legend-item"><span class="dot dot-weekend"></span>週末</span>
+            </div>
+
+            <!-- 星期抬頭 -->
+            <div class="calendar-weekdays">
+                <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+            </div>
+
+            <!-- 日曆格子 -->
+            <div class="calendar-grid" id="calendar-grid"></div>
+        </section>
+
+        <!-- 說明 -->
+        <section class="panel">
+            <h2>💡 使用說明</h2>
+            <ul class="info-list">
+                <li>👆 點擊任何日期可以標記為放假</li>
+                <li>👆 再次點擊已放假日期可以取消標記</li>
+                <li>🔴 紅色 = 公眾假期（澳門）</li>
+                <li>🟡 黃色 = 週末</li>
+                <li>🟢 綠色 = 返工日</li>
+            </ul>
+        </section>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div id="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
