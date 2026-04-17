@@ -2,6 +2,11 @@ services:
   - type: web
     name: work-schedule
     env: python
-    buildCommand: pip install Flask Flask-SQLAlchemy
+    buildCommand: pip install Flask Flask-SQLAlchemy psycopg2-binary
     startCommand: python main.py
     plan: free
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_KNU61nHGeIvh@ep-hidden-moon-amls7v1m.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require
+      - key: SECRET_KEY
+        generateValue: true
