@@ -124,6 +124,14 @@ MACAU_HOLIDAYS = {
     date(2028, 12, 31): "除夕",
 }
 
+# ===== 假期類型 =====
+LEAVE_TYPES = {
+    "off": "放假",
+    "leave_annual": "年假",
+    "leave_compensatory": "補假",
+}
+
+
 # ===== Models =====
 
 class User(db.Model):
@@ -146,7 +154,7 @@ class DayOff(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     date = db.Column(db.Date, nullable=False)
-    reason = db.Column(db.String(100), nullable=True)
+    reason = db.Column(db.String(100), nullable=True)  # off, leave_annual, leave_compensatory
     holiday_name = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -159,6 +167,7 @@ class DayOff(db.Model):
             "id": self.id,
             "date": self.date.isoformat(),
             "reason": self.reason,
+            "leave_label": LEAVE_TYPES.get(self.reason, self.reason),
             "holiday_name": self.holiday_name,
         }
 
@@ -230,7 +239,8 @@ def get_calendar(year, month):
         DayOff.date >= start_date,
         DayOff.date <= end_date
     ).all()
-    user_off_dates = {d.date for d in user_days_off}
+    # date -> DayOff object mapping
+    off_dates_map = {d.date: d for d in user_days_off}
 
     import calendar
     cal = calendar.Calendar(firstweekday=6)
@@ -242,10 +252,14 @@ def get_calendar(year, month):
             continue
 
         d = date(year, month, day)
-        is_user_off = d in user_off_dates
+        day_off = off_dates_map.get(d)
 
-        status = "user_off" if is_user_off else "empty"
-        label = "放假" if is_user_off else ""
+        if day_off:
+            status = day_off.reason or "off"
+            label = LEAVE_TYPES.get(status, status)
+        else:
+            status = "empty"
+            label = ""
 
         days.append({
             "day": day,
@@ -292,8 +306,12 @@ def add_day_off():
 
     data = request.get_json()
     date_str = data.get("date")
+    leave_type = data.get("leave_type", "off")
     if not date_str:
         return jsonify({"error": "請選擇日期"}), 400
+
+    if leave_type not in LEAVE_TYPES:
+        return jsonify({"error": "無效的假期類型"}), 400
 
     d = datetime.strptime(date_str, "%Y-%m-%d").date()
     holiday_name = MACAU_HOLIDAYS.get(d)
@@ -305,7 +323,7 @@ def add_day_off():
     day_off = DayOff(
         user_id=user_id,
         date=d,
-        reason="user",
+        reason=leave_type,
         holiday_name=holiday_name
     )
     db.session.add(day_off)
@@ -329,6 +347,28 @@ def remove_day_off(date_str):
     return jsonify({"message": "已刪除"})
 
 
+@app.route("/api/days-off/<date_str>", methods=["PATCH"])
+def update_day_off(date_str):
+    """更新假期類型"""
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "請先登入"}), 401
+
+    data = request.get_json()
+    leave_type = data.get("leave_type")
+    if not leave_type or leave_type not in LEAVE_TYPES:
+        return jsonify({"error": "無效的假期類型"}), 400
+
+    d = datetime.strptime(date_str, "%Y-%m-%d").date()
+    day_off = DayOff.query.filter_by(user_id=user_id, date=d).first()
+    if not day_off:
+        return jsonify({"error": "找不到記錄"}), 404
+
+    day_off.reason = leave_type
+    db.session.commit()
+    return jsonify(day_off.to_dict())
+
+
 @app.route("/api/summary/<int:year>/<int:month>")
 def get_summary(year, month):
     user_id = get_user_id()
@@ -342,19 +382,29 @@ def get_summary(year, month):
         end_date = date(year, month + 1, 1) - timedelta(days=1)
 
     work_days = 0
-    user_off_days = 0
+    off_days = 0
+    leave_annual_days = 0
+    leave_compensatory_days = 0
 
     user_days_off = DayOff.query.filter(
         DayOff.user_id == user_id,
         DayOff.date >= start_date,
         DayOff.date <= end_date
     ).all()
-    user_off_dates = {d.date for d in user_days_off}
+    off_dates = {d.date: d.reason for d in user_days_off}
 
     d = start_date
     while d <= end_date:
-        if d in user_off_dates:
-            user_off_days += 1
+        reason = off_dates.get(d)
+        if reason == "leave_annual":
+            leave_annual_days += 1
+            off_days += 1
+        elif reason == "leave_compensatory":
+            leave_compensatory_days += 1
+            off_days += 1
+        elif reason:
+            off_days += 1
+            work_days += 1
         else:
             work_days += 1
         d += timedelta(days=1)
@@ -363,7 +413,9 @@ def get_summary(year, month):
         "year": year,
         "month": month,
         "work_days": work_days,
-        "user_off_days": user_off_days,
+        "off_days": off_days,
+        "leave_annual_days": leave_annual_days,
+        "leave_compensatory_days": leave_compensatory_days,
     })
 
 

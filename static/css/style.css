@@ -217,9 +217,9 @@ header h1 {
     display: inline-block;
 }
 
-.dot-work { background: #ccc; }
 .dot-empty { background: #e1e1e1; }
-.dot-user-off { background: #f39c12; }
+.dot-off { background: #f39c12; }
+.dot-leave { background: #3498db; }
 .dot-weekend { background: #ccc; }
 
 .calendar-weekdays {
@@ -268,31 +268,29 @@ header h1 {
     transform: none;
 }
 
-.calendar-day.work {
-    background: #f8f9fa;
-    color: #ccc;
-    border-color: #e1e1e1;
-}
-
 .calendar-day.empty {
     background: #fafafa;
     color: #ccc;
     border-color: #e1e1e1;
 }
 
-.calendar-day.user_off {
+.calendar-day.off {
     background: #fff3cd;
     color: #856404;
     border-color: #f39c12;
 }
 
-.calendar-day.weekend {
-    background: #e9ecef;
-    color: #495057;
-    border-color: #95a5a6;
+.calendar-day.leave_annual,
+.calendar-day.leave_compensatory {
+    background: #d6eaf8;
+    color: #1a5276;
+    border-color: #3498db;
 }
 
-
+.calendar-day.today {
+    border-color: #667eea;
+    border-width: 3px;
+}
 
 .calendar-day .day-label {
     font-size: 9px;
@@ -305,11 +303,6 @@ header h1 {
     white-space: nowrap;
     max-width: 100%;
     padding: 0 2px;
-}
-
-.calendar-day.today {
-    border-color: #667eea;
-    border-width: 3px;
 }
 
 /* ===== 說明 ===== */
@@ -326,6 +319,71 @@ header h1 {
 
 .info-list li:last-child {
     border-bottom: none;
+}
+
+/* ===== Modal ===== */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    max-width: 320px;
+    width: 90%;
+}
+
+.modal-content h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.modal-content p {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.btn-leave {
+    flex: 1;
+    background: #3498db;
+    color: white;
+    padding: 12px;
+    font-size: 15px;
+}
+
+.btn-leave:hover {
+    background: #2980b9;
+}
+
+.btn-cancel {
+    width: 100%;
+    background: #e1e1e1;
+    color: #333;
+    padding: 10px;
+    font-size: 14px;
+}
+
+.btn-cancel:hover {
+    background: #d1d1d1;
 }
 
 /* ===== Toast ===== */

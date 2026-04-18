@@ -7,6 +7,7 @@ const API_BASE = '/api';
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
 let currentUser = null;
+let pendingToggleDate = null; // 儲存等待選擇請假類型的日期
 
 document.addEventListener('DOMContentLoaded', () => {
     checkLoginStatus();
@@ -87,10 +88,7 @@ async function loadMonth(year, month) {
     const grid = document.getElementById('calendar-grid');
     grid.innerHTML = '';
 
-    // 找出第一個有效日前的空白格
-    const firstDayData = data.days[0];
-    // calendar.firstweekday = 6 (週日開始), 所以第一個是空白的話 day 是 0
-    // 計算空白格數量
+    // 計算空白格
     let emptyCount = 0;
     for (let d of data.days) {
         if (d.day === null) {
@@ -100,7 +98,6 @@ async function loadMonth(year, month) {
         }
     }
 
-    // 週日開始，所以空白要喺前面
     for (let i = 0; i < emptyCount; i++) {
         const empty = document.createElement('div');
         empty.className = 'calendar-day empty';
@@ -116,6 +113,7 @@ async function loadMonth(year, month) {
         const el = document.createElement('div');
         el.className = `calendar-day ${d.status}`;
         el.dataset.date = d.date;
+        el.dataset.status = d.status;
 
         if (d.date === today.toISOString().split('T')[0]) {
             el.classList.add('today');
@@ -132,27 +130,15 @@ async function loadMonth(year, month) {
 }
 
 async function toggleDay(d) {
-    const isUserOff = d.status === 'user_off';
+    const status = d.status;
 
-    if (isUserOff) {
-        // 刪除
-        if (!confirm(`取消 ${d.day}日 的放假標記？`)) return;
-        try {
-            const res = await fetch(`${API_BASE}/days-off/${d.date}`, { method: 'DELETE' });
-            if (res.ok) {
-                showToast('已取消', 'success');
-                loadCalendar();
-            }
-        } catch (e) {
-            showToast('刪除失敗', 'error');
-        }
-    } else {
-        // 新增
+    if (status === 'empty') {
+        // 空白 → 標記為放假
         try {
             const res = await fetch(`${API_BASE}/days-off`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date: d.date })
+                body: JSON.stringify({ date: d.date, leave_type: 'off' })
             });
             if (res.ok) {
                 showToast(`${d.day}日已標記為放假`, 'success');
@@ -164,9 +150,63 @@ async function toggleDay(d) {
         } catch (e) {
             showToast('網絡錯誤', 'error');
         }
+    } else if (status === 'off') {
+        // 放假 → 彈出選擇請假類型
+        pendingToggleDate = d;
+        openLeaveModal(d);
+    } else {
+        // 請假（年假/補假）→ 取消
+        if (!confirm(`取消 ${d.day}日 的標記？`)) return;
+        try {
+            const res = await fetch(`${API_BASE}/days-off/${d.date}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('已取消', 'success');
+                loadCalendar();
+            }
+        } catch (e) {
+            showToast('刪除失敗', 'error');
+        }
     }
 }
 
+// ===== 請假選擇彈窗 =====
+function openLeaveModal(d) {
+    document.getElementById('modal-date').textContent = `${d.day}日`;
+    document.getElementById('leave-modal').style.display = 'flex';
+}
+
+function closeLeaveModal() {
+    document.getElementById('leave-modal').style.display = 'none';
+    pendingToggleDate = null;
+}
+
+async function selectLeave(leaveType) {
+    if (!pendingToggleDate) return;
+    const d = pendingToggleDate;
+
+    try {
+        // 更新為請假類型
+        const res = await fetch(`${API_BASE}/days-off/${d.date}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leave_type: leaveType })
+        });
+        if (res.ok) {
+            const label = leaveType === 'leave_annual' ? '年假' : '補假';
+            showToast(`${d.day}日已改為${label}`, 'success');
+            loadCalendar();
+        } else {
+            const err = await res.json();
+            showToast(err.error || '設置失敗', 'error');
+        }
+    } catch (e) {
+        showToast('網絡錯誤', 'error');
+    } finally {
+        closeLeaveModal();
+    }
+}
+
+// ===== 月份切換 =====
 function changeMonth(delta) {
     currentMonth += delta;
     if (currentMonth > 12) {
@@ -186,7 +226,7 @@ async function loadSummary() {
     const data = await res.json();
 
     document.getElementById('stat-work').textContent = data.work_days;
-    document.getElementById('stat-off').textContent = data.user_off_days;
+    document.getElementById('stat-off').textContent = data.off_days;
 }
 
 // ===== 工具 =====

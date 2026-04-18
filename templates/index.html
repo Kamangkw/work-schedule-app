@@ -37,14 +37,14 @@
         <!-- 統計面板 -->
         <section class="panel">
             <h2>📊 本月統計</h2>
-            <div class="stats-grid" id="stats-grid">
+            <div class="stats-grid">
                 <div class="stat-card stat-work">
                     <div class="stat-number" id="stat-work">0</div>
-                    <div class="stat-label">總天數</div>
+                    <div class="stat-label">工作天</div>
                 </div>
                 <div class="stat-card stat-off">
                     <div class="stat-number" id="stat-off">0</div>
-                    <div class="stat-label">放假日</div>
+                    <div class="stat-label">放假天</div>
                 </div>
             </div>
         </section>
@@ -59,8 +59,9 @@
 
             <!-- 圖例 -->
             <div class="legend">
-                <span class="legend-item"><span class="dot dot-empty"></span>空白（預設）</span>
-                <span class="legend-item"><span class="dot dot-user-off"></span>放假</span>
+                <span class="legend-item"><span class="dot dot-empty"></span>空白</span>
+                <span class="legend-item"><span class="dot dot-off"></span>放假</span>
+                <span class="legend-item"><span class="dot dot-leave"></span>請假</span>
             </div>
 
             <!-- 星期抬頭 -->
@@ -76,12 +77,27 @@
         <section class="panel">
             <h2>💡 使用說明</h2>
             <ul class="info-list">
-                <li>👆 點擊任何日期可以標記為放假</li>
-                <li>👆 再次點擊已放假日期可以取消標記</li>
-                <li>🟡 黃色 = 已標記放假</li>
-                <li>⬜ 空白 = 預設（不是放假）</li>
+                <li>👆 點擊空白日期 → 標記為放假</li>
+                <li>👆 點擊放假日期 → 選擇請假類型（年假/補假）</li>
+                <li>👆 點擊請假日期 → 取消標記</li>
+                <li>⬜ 空白 = 默認工作</li>
+                <li>🟡 黃色 = 放假</li>
+                <li>🔵 藍色 = 請假（年假/補假）</li>
             </ul>
         </section>
+    </div>
+
+    <!-- 請假選擇彈窗 -->
+    <div id="leave-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>選擇請假類型</h3>
+            <p id="modal-date"></p>
+            <div class="modal-buttons">
+                <button class="btn btn-leave" onclick="selectLeave('leave_annual')">年假</button>
+                <button class="btn btn-leave" onclick="selectLeave('leave_compensatory')">補假</button>
+            </div>
+            <button class="btn btn-cancel" onclick="closeLeaveModal()">取消</button>
+        </div>
     </div>
 
     <!-- Toast 通知 -->
