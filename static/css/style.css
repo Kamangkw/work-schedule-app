@@ -183,9 +183,14 @@ header h1 {
 .stat-off .stat-number { color: #f39c12; }
 
 /* ===== 儲存按鈕 ===== */
-.btn-save {
-    width: 100%;
+.save-buttons {
+    display: flex;
+    gap: 12px;
     margin-top: 16px;
+}
+
+.btn-save {
+    flex: 1;
     background: #27ae60;
     color: white;
     padding: 14px;
@@ -198,6 +203,18 @@ header h1 {
 
 .btn-save:disabled {
     background: #95a5a6;
+}
+
+.btn-cancel-save {
+    flex: 1;
+    background: #e74c3c;
+    color: white;
+    padding: 14px;
+    font-size: 16px;
+}
+
+.btn-cancel-save:hover {
+    background: #c0392b;
 }
 
 /* ===== 日曆 ===== */

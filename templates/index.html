@@ -47,7 +47,10 @@
                     <div class="stat-label">放假天</div>
                 </div>
             </div>
-            <button id="save-btn" class="btn btn-save" style="display: none;" onclick="saveChanges()">儲存改動</button>
+            <div class="save-buttons">
+                <button id="cancel-btn" class="btn btn-cancel-save" onclick="cancelChanges()">取消</button>
+                <button id="save-btn" class="btn btn-save" style="display: none;" onclick="saveChanges()">儲存改動</button>
+            </div>
         </section>
 
         <!-- 月曆面板 -->

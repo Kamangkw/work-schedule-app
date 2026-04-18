@@ -165,11 +165,14 @@ function handleDayClick(d, el) {
 
 function updateSaveButton() {
     const btn = document.getElementById('save-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
     if (pendingChanges.length > 0) {
-        btn.style.display = 'inline-block';
+        btn.style.display = 'block';
         btn.textContent = `儲存改動 (${pendingChanges.length})`;
+        cancelBtn.style.display = 'block';
     } else {
         btn.style.display = 'none';
+        cancelBtn.style.display = 'none';
     }
 }
 
@@ -226,7 +229,6 @@ async function saveChanges() {
             showToast('已儲存', 'success');
             pendingChanges = [];
             updateSaveButton();
-            // 重新載入以確保同步
             await loadMonth(currentYear, currentMonth);
         } else {
             const err = await res.json();
@@ -238,6 +240,14 @@ async function saveChanges() {
         btn.disabled = false;
         btn.textContent = `儲存改動 (${pendingChanges.length})`;
     }
+}
+
+function cancelChanges() {
+    if (pendingChanges.length === 0) return;
+    if (!confirm('確定要取消所有改動嗎？')) return;
+    pendingChanges = [];
+    updateSaveButton();
+    loadMonth(currentYear, currentMonth);
 }
 
 // ===== 月份切換 =====
