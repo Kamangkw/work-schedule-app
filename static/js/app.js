@@ -7,7 +7,8 @@ const API_BASE = '/api';
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
 let currentUser = null;
-let pendingToggleDate = null; // 儲存等待選擇請假類型的日期
+let originalData = []; // 初始數據快照
+let pendingChanges = []; // 待存的改動
 
 document.addEventListener('DOMContentLoaded', () => {
     checkLoginStatus();
@@ -75,6 +76,8 @@ function showApp(name) {
 
 // ===== 日曆 =====
 async function loadCalendar() {
+    pendingChanges = [];
+    updateSaveButton();
     await loadMonth(currentYear, currentMonth);
 }
 
@@ -83,10 +86,11 @@ async function loadMonth(year, month) {
     const data = await res.json();
 
     document.getElementById('calendar-title').textContent = `${year}年${month}月`;
-
-    // 直接用 calendar API 返回的統計數據，唔需要另外 call summary
     document.getElementById('stat-work').textContent = data.work_days;
     document.getElementById('stat-off').textContent = data.off_days;
+
+    // 保存初始快照
+    originalData = data.days.map(d => ({...d}));
 
     const grid = document.getElementById('calendar-grid');
     grid.innerHTML = '';
@@ -127,117 +131,119 @@ async function loadMonth(year, month) {
             ${d.label ? `<span class="day-label">${d.label}</span>` : ''}
         `;
 
-        el.addEventListener('click', () => toggleDay(d));
+        el.addEventListener('click', () => handleDayClick(d, el));
         grid.appendChild(el);
     }
 }
 
-async function toggleDay(d) {
+// ===== 點擊處理 - Optimistic UI =====
+function handleDayClick(d, el) {
     const status = d.status;
 
     if (status === 'empty') {
-        try {
-            const res = await fetch(`${API_BASE}/days-off`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date: d.date, leave_type: 'off' })
-            });
-            if (res.ok) {
-                showToast(`${d.day}日已標記為放假`, 'success');
-                await refreshDay(d.date, 'off', '放假');
-                updateStatsLocal(1, -1); // off+1, work-1
-            } else {
-                const err = await res.json();
-                showToast(err.error || '設置失敗', 'error');
-            }
-        } catch (e) {
-            showToast('網絡錯誤', 'error');
-        }
+        // 空白 → 放假
+        el.className = 'calendar-day off';
+        el.dataset.status = 'off';
+        el.innerHTML = `<span>${d.day}</span><span class="day-label">放假</span>`;
+        pendingChanges.push({ date: d.date, action: 'add', leave_type: 'off', day: d.day });
+        updateStatsLocal(1, -1);
     } else if (status === 'off') {
-        pendingToggleDate = d;
-        openLeaveModal(d);
+        // 放假 → 彈出選擇
+        openLeaveModal(d, el);
     } else {
-        // 請假 → 直接取消
-        try {
-            const res = await fetch(`${API_BASE}/days-off/${d.date}`, { method: 'DELETE' });
-            if (res.ok) {
-                showToast('已取消', 'success');
-                await refreshDay(d.date, 'empty', '');
-                updateStatsLocal(-1, 1); // off-1, work+1
-            }
-        } catch (e) {
-            showToast('刪除失敗', 'error');
-        }
+        // 請假 → 取消
+        el.className = 'calendar-day empty';
+        el.dataset.status = 'empty';
+        el.innerHTML = `<span>${d.day}</span>`;
+        pendingChanges.push({ date: d.date, action: 'remove', day: d.day });
+        updateStatsLocal(-1, 1);
+    }
+
+    updateSaveButton();
+}
+
+function updateSaveButton() {
+    const btn = document.getElementById('save-btn');
+    if (pendingChanges.length > 0) {
+        btn.style.display = 'inline-block';
+        btn.textContent = `儲存改動 (${pendingChanges.length})`;
+    } else {
+        btn.style.display = 'none';
     }
 }
 
-// 本地更新統計，唔需要 call API
-function updateStatsLocal(offDelta, workDelta) {
-    const statOff = document.getElementById('stat-off');
-    const statWork = document.getElementById('stat-work');
-    statOff.textContent = Math.max(0, parseInt(statOff.textContent) + offDelta);
-    statWork.textContent = Math.max(0, parseInt(statWork.textContent) + workDelta);
-}
+// ===== 請假選擇 =====
+let pendingLeaveEl = null;
+let pendingLeaveDate = null;
 
-// 只更新單個日期格，不重載整個日曆
-async function refreshDay(dateStr, newStatus, newLabel) {
-    const dayEl = document.querySelector(`.calendar-day[data-date="${dateStr}"]`);
-    if (!dayEl) return;
-    dayEl.className = `calendar-day ${newStatus}`;
-    dayEl.dataset.status = newStatus;
-    const labelEl = dayEl.querySelector('.day-label');
-    if (labelEl) {
-        if (newLabel) {
-            labelEl.textContent = newLabel;
-        } else {
-            labelEl.remove();
-        }
-    } else if (newLabel) {
-        const span = document.createElement('span');
-        span.className = 'day-label';
-        span.textContent = newLabel;
-        dayEl.appendChild(span);
-    }
-}
-
-// ===== 請假選擇彈窗 =====
-function openLeaveModal(d) {
+function openLeaveModal(d, el) {
+    pendingLeaveEl = el;
+    pendingLeaveDate = d;
     document.getElementById('modal-date').textContent = `${d.day}日`;
     document.getElementById('leave-modal').style.display = 'flex';
 }
 
 function closeLeaveModal() {
     document.getElementById('leave-modal').style.display = 'none';
-    pendingToggleDate = null;
+    pendingLeaveEl = null;
+    pendingLeaveDate = null;
 }
 
-async function selectLeave(leaveType) {
-    if (!pendingToggleDate) return;
-    const d = pendingToggleDate;
+function selectLeave(leaveType) {
+    const d = pendingLeaveDate;
+    const el = pendingLeaveEl;
+    const label = leaveType === 'leave_annual' ? '年假' : '補假';
+
+    el.className = `calendar-day ${leaveType}`;
+    el.dataset.status = leaveType;
+    el.innerHTML = `<span>${d.day}</span><span class="day-label">${label}</span>`;
+
+    // 從 pendingChanges 移除之前可能的 add/off，改為 add/leave_type
+    pendingChanges = pendingChanges.filter(c => !(c.date === d.date && c.action === 'add' && c.leave_type === 'off'));
+    pendingChanges.push({ date: d.date, action: 'add', leave_type: leaveType, day: d.day });
+
+    updateSaveButton();
+    closeLeaveModal();
+}
+
+// ===== 批次儲存 =====
+async function saveChanges() {
+    if (pendingChanges.length === 0) return;
+
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+    btn.textContent = '儲存中...';
 
     try {
-        const res = await fetch(`${API_BASE}/days-off/${d.date}`, {
-            method: 'PATCH',
+        const res = await fetch(`${API_BASE}/days-off/batch`, {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ leave_type: leaveType })
+            body: JSON.stringify({ changes: pendingChanges })
         });
+
         if (res.ok) {
-            const label = leaveType === 'leave_annual' ? '年假' : '補假';
-            showToast(`${d.day}日已改為${label}`, 'success');
-            await refreshDay(d.date, leaveType, label);
+            showToast('已儲存', 'success');
+            pendingChanges = [];
+            updateSaveButton();
+            // 重新載入以確保同步
+            await loadMonth(currentYear, currentMonth);
         } else {
             const err = await res.json();
-            showToast(err.error || '設置失敗', 'error');
+            showToast(err.error || '儲存失敗', 'error');
         }
     } catch (e) {
         showToast('網絡錯誤', 'error');
     } finally {
-        closeLeaveModal();
+        btn.disabled = false;
+        btn.textContent = `儲存改動 (${pendingChanges.length})`;
     }
 }
 
 // ===== 月份切換 =====
 function changeMonth(delta) {
+    if (pendingChanges.length > 0) {
+        if (!confirm('有未儲存的改動，確定要切換月份嗎？')) return;
+    }
     currentMonth += delta;
     if (currentMonth > 12) {
         currentMonth = 1;
@@ -249,13 +255,12 @@ function changeMonth(delta) {
     loadMonth(currentYear, currentMonth);
 }
 
-// ===== 統計 =====
-async function loadSummary() {
-    const res = await fetch(`${API_BASE}/summary/${currentYear}/${currentMonth}`);
-    const data = await res.json();
-
-    document.getElementById('stat-work').textContent = data.work_days;
-    document.getElementById('stat-off').textContent = data.off_days;
+// ===== 本地統計更新 =====
+function updateStatsLocal(offDelta, workDelta) {
+    const statOff = document.getElementById('stat-off');
+    const statWork = document.getElementById('stat-work');
+    statOff.textContent = Math.max(0, parseInt(statOff.textContent) + offDelta);
+    statWork.textContent = Math.max(0, parseInt(statWork.textContent) + workDelta);
 }
 
 // ===== 工具 =====

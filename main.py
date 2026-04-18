@@ -359,6 +359,57 @@ def remove_day_off(date_str):
     return jsonify({"message": "已刪除"})
 
 
+@app.route("/api/days-off/batch", methods=["POST"])
+def batch_update_days_off():
+    """批次更新假期：一次過處理多個新增/刪除"""
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "請先登入"}), 401
+
+    data = request.get_json()
+    changes = data.get("changes", [])
+
+    results = {"added": 0, "removed": 0, "updated": 0, "errors": []}
+
+    for change in changes:
+        date_str = change.get("date")
+        action = change.get("action")
+
+        try:
+            d = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+            if action == "add":
+                leave_type = change.get("leave_type", "off")
+                existing = DayOff.query.filter_by(user_id=user_id, date=d).first()
+                if existing:
+                    # 更新類型
+                    existing.reason = leave_type
+                    results["updated"] += 1
+                else:
+                    # 新增
+                    holiday_name = MACAU_HOLIDAYS.get(d)
+                    day_off = DayOff(
+                        user_id=user_id,
+                        date=d,
+                        reason=leave_type,
+                        holiday_name=holiday_name
+                    )
+                    db.session.add(day_off)
+                    results["added"] += 1
+
+            elif action == "remove":
+                existing = DayOff.query.filter_by(user_id=user_id, date=d).first()
+                if existing:
+                    db.session.delete(existing)
+                    results["removed"] += 1
+
+        except Exception as e:
+            results["errors"].append({"date": date_str, "error": str(e)})
+
+    db.session.commit()
+    return jsonify(results)
+
+
 @app.route("/api/days-off/<date_str>", methods=["PATCH"])
 def update_day_off(date_str):
     """更新假期類型"""
