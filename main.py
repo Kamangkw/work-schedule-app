@@ -481,6 +481,34 @@ def get_summary(year, month):
     })
 
 
+@app.route("/api/export", methods=["GET"])
+def export_days_off():
+    """匯出用家所有放假記錄"""
+    user_id = get_user_id()
+    if not user_id:
+        return jsonify({"error": "請先登入"}), 401
+
+    days = DayOff.query.filter_by(user_id=user_id).order_by(DayOff.date).all()
+    
+    # 按年分類
+    by_year = {}
+    for d in days:
+        year = d.date.year
+        if year not in by_year:
+            by_year[year] = []
+        by_year[year].append({
+            "date": d.date.isoformat(),
+            "reason": d.reason,
+            "holiday_name": d.holiday_name,
+        })
+    
+    return jsonify({
+        "user_id": user_id,
+        "total": len(days),
+        "by_year": by_year,
+    })
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(debug=False, host="0.0.0.0", port=port)
