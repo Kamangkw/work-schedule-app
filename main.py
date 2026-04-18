@@ -362,10 +362,10 @@ def remove_day_off(date_str):
 @app.route("/api/days-off/batch", methods=["POST"])
 def batch_update_days_off():
     """批次更新假期：一次過處理多個新增/刪改"""
-    # API Key 認證
+    # API Key 認證（可選：提供並匹配先驗證）
     api_key = os.environ.get("EXPORT_API_KEY")
-    if api_key:
-        provided_key = request.headers.get("X-API-Key", "").strip()
+    provided_key = request.headers.get("X-API-Key", "").strip()
+    if api_key and provided_key:
         if provided_key != api_key.strip():
             return jsonify({"error": "無效 API Key"}), 403
     
@@ -494,8 +494,8 @@ def get_summary(year, month):
 def export_days_off():
     """匯出用家所有放假記錄（支援 API Key 認證）"""
     api_key = os.environ.get("EXPORT_API_KEY")
-    if api_key:
-        provided_key = request.headers.get("X-API-Key", "").strip()
+    provided_key = request.headers.get("X-API-Key", "").strip()
+    if api_key and provided_key:
         if provided_key != api_key.strip():
             return jsonify({"error": "無效 API Key"}), 403
     
