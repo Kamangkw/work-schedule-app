@@ -239,8 +239,18 @@ def get_calendar(year, month):
         DayOff.date >= start_date,
         DayOff.date <= end_date
     ).all()
-    # date -> DayOff object mapping
     off_dates_map = {d.date: d for d in user_days_off}
+
+    # 計算統計
+    work_days = 0
+    off_days = 0
+    d = start_date
+    while d <= end_date:
+        if d in off_dates_map:
+            off_days += 1
+        else:
+            work_days += 1
+        d += timedelta(days=1)
 
     import calendar
     cal = calendar.Calendar(firstweekday=6)
@@ -272,6 +282,8 @@ def get_calendar(year, month):
         "year": year,
         "month": month,
         "days": days,
+        "work_days": work_days,
+        "off_days": off_days,
     })
 
 

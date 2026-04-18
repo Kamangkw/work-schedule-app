@@ -75,7 +75,7 @@ function showApp(name) {
 
 // ===== 日曆 =====
 async function loadCalendar() {
-    await Promise.all([loadSummary(), loadMonth(currentYear, currentMonth)]);
+    await loadMonth(currentYear, currentMonth);
 }
 
 async function loadMonth(year, month) {
@@ -83,6 +83,10 @@ async function loadMonth(year, month) {
     const data = await res.json();
 
     document.getElementById('calendar-title').textContent = `${year}年${month}月`;
+
+    // 直接用 calendar API 返回的統計數據，唔需要另外 call summary
+    document.getElementById('stat-work').textContent = data.work_days;
+    document.getElementById('stat-off').textContent = data.off_days;
 
     const grid = document.getElementById('calendar-grid');
     grid.innerHTML = '';
@@ -140,8 +144,8 @@ async function toggleDay(d) {
             });
             if (res.ok) {
                 showToast(`${d.day}日已標記為放假`, 'success');
-                // 只更新統計和該日期狀態，不重載整個日曆
-                await Promise.all([loadSummary(), refreshDay(d.date, 'off', '放假')]);
+                await refreshDay(d.date, 'off', '放假');
+                updateStatsLocal(1, -1); // off+1, work-1
             } else {
                 const err = await res.json();
                 showToast(err.error || '設置失敗', 'error');
@@ -153,17 +157,26 @@ async function toggleDay(d) {
         pendingToggleDate = d;
         openLeaveModal(d);
     } else {
-        // 請假 → 直接取消，不重載
+        // 請假 → 直接取消
         try {
             const res = await fetch(`${API_BASE}/days-off/${d.date}`, { method: 'DELETE' });
             if (res.ok) {
                 showToast('已取消', 'success');
-                await Promise.all([loadSummary(), refreshDay(d.date, 'empty', '')]);
+                await refreshDay(d.date, 'empty', '');
+                updateStatsLocal(-1, 1); // off-1, work+1
             }
         } catch (e) {
             showToast('刪除失敗', 'error');
         }
     }
+}
+
+// 本地更新統計，唔需要 call API
+function updateStatsLocal(offDelta, workDelta) {
+    const statOff = document.getElementById('stat-off');
+    const statWork = document.getElementById('stat-work');
+    statOff.textContent = Math.max(0, parseInt(statOff.textContent) + offDelta);
+    statWork.textContent = Math.max(0, parseInt(statWork.textContent) + workDelta);
 }
 
 // 只更新單個日期格，不重載整個日曆
@@ -209,10 +222,9 @@ async function selectLeave(leaveType) {
             body: JSON.stringify({ leave_type: leaveType })
         });
         if (res.ok) {
-            const result = await res.json();
             const label = leaveType === 'leave_annual' ? '年假' : '補假';
             showToast(`${d.day}日已改為${label}`, 'success');
-            await Promise.all([loadSummary(), refreshDay(d.date, leaveType, label)]);
+            await refreshDay(d.date, leaveType, label);
         } else {
             const err = await res.json();
             showToast(err.error || '設置失敗', 'error');
@@ -234,7 +246,6 @@ function changeMonth(delta) {
         currentMonth = 12;
         currentYear--;
     }
-    loadSummary();
     loadMonth(currentYear, currentMonth);
 }
 
