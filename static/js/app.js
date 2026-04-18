@@ -138,7 +138,8 @@ async function loadMonth(year, month) {
 
 // ===== 點擊處理 - Optimistic UI =====
 function handleDayClick(d, el) {
-    const status = d.status;
+    // 用 el.dataset.status 判斷當前UI狀態，因為 optimistic UI 可能已更新
+    const status = el.dataset.status;
 
     if (status === 'empty') {
         // 空白 → 放假
