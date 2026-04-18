@@ -361,8 +361,17 @@ def remove_day_off(date_str):
 
 @app.route("/api/days-off/batch", methods=["POST"])
 def batch_update_days_off():
-    """批次更新假期：一次過處理多個新增/刪除"""
-    user_id = get_user_id()
+    """批次更新假期：一次過處理多個新增/刪改"""
+    # API Key 認證
+    api_key = os.environ.get("EXPORT_API_KEY")
+    if api_key:
+        provided_key = request.headers.get("X-API-Key", "").strip()
+        if provided_key != api_key.strip():
+            return jsonify({"error": "無效 API Key"}), 403
+    
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        user_id = get_user_id()
     if not user_id:
         return jsonify({"error": "請先登入"}), 401
 
