@@ -176,6 +176,7 @@ function changeMonth(delta) {
         currentMonth = 12;
         currentYear--;
     }
+    loadSummary();
     loadMonth(currentYear, currentMonth);
 }
 
