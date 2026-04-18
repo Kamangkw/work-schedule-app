@@ -484,14 +484,16 @@ def get_summary(year, month):
 @app.route("/api/export", methods=["GET"])
 def export_days_off():
     """匯出用家所有放假記錄（支援 API Key 認證）"""
-    # API Key 認證（用 Header: X-API-Key）
     api_key = os.environ.get("EXPORT_API_KEY")
     if api_key:
         provided_key = request.headers.get("X-API-Key", "").strip()
         if provided_key != api_key.strip():
             return jsonify({"error": "無效 API Key"}), 403
     
-    user_id = get_user_id()
+    # 有 API Key 時用 user_id 參數，無則用 session
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        user_id = get_user_id()
     if not user_id:
         return jsonify({"error": "請先登入"}), 401
 
