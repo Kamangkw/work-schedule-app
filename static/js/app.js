@@ -75,8 +75,7 @@ function showApp(name) {
 
 // ===== 日曆 =====
 async function loadCalendar() {
-    await loadSummary();
-    await loadMonth(currentYear, currentMonth);
+    await Promise.all([loadSummary(), loadMonth(currentYear, currentMonth)]);
 }
 
 async function loadMonth(year, month) {
@@ -133,7 +132,6 @@ async function toggleDay(d) {
     const status = d.status;
 
     if (status === 'empty') {
-        // 空白 → 標記為放假
         try {
             const res = await fetch(`${API_BASE}/days-off`, {
                 method: 'POST',
@@ -142,7 +140,8 @@ async function toggleDay(d) {
             });
             if (res.ok) {
                 showToast(`${d.day}日已標記為放假`, 'success');
-                loadCalendar();
+                // 只更新統計和該日期狀態，不重載整個日曆
+                await Promise.all([loadSummary(), refreshDay(d.date, 'off', '放假')]);
             } else {
                 const err = await res.json();
                 showToast(err.error || '設置失敗', 'error');
@@ -151,20 +150,40 @@ async function toggleDay(d) {
             showToast('網絡錯誤', 'error');
         }
     } else if (status === 'off') {
-        // 放假 → 彈出選擇請假類型
         pendingToggleDate = d;
         openLeaveModal(d);
     } else {
-        // 請假（年假/補假）→ 直接取消
+        // 請假 → 直接取消，不重載
         try {
             const res = await fetch(`${API_BASE}/days-off/${d.date}`, { method: 'DELETE' });
             if (res.ok) {
                 showToast('已取消', 'success');
-                loadCalendar();
+                await Promise.all([loadSummary(), refreshDay(d.date, 'empty', '')]);
             }
         } catch (e) {
             showToast('刪除失敗', 'error');
         }
+    }
+}
+
+// 只更新單個日期格，不重載整個日曆
+async function refreshDay(dateStr, newStatus, newLabel) {
+    const dayEl = document.querySelector(`.calendar-day[data-date="${dateStr}"]`);
+    if (!dayEl) return;
+    dayEl.className = `calendar-day ${newStatus}`;
+    dayEl.dataset.status = newStatus;
+    const labelEl = dayEl.querySelector('.day-label');
+    if (labelEl) {
+        if (newLabel) {
+            labelEl.textContent = newLabel;
+        } else {
+            labelEl.remove();
+        }
+    } else if (newLabel) {
+        const span = document.createElement('span');
+        span.className = 'day-label';
+        span.textContent = newLabel;
+        dayEl.appendChild(span);
     }
 }
 
@@ -184,16 +203,16 @@ async function selectLeave(leaveType) {
     const d = pendingToggleDate;
 
     try {
-        // 更新為請假類型
         const res = await fetch(`${API_BASE}/days-off/${d.date}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ leave_type: leaveType })
         });
         if (res.ok) {
+            const result = await res.json();
             const label = leaveType === 'leave_annual' ? '年假' : '補假';
             showToast(`${d.day}日已改為${label}`, 'success');
-            loadCalendar();
+            await Promise.all([loadSummary(), refreshDay(d.date, leaveType, label)]);
         } else {
             const err = await res.json();
             showToast(err.error || '設置失敗', 'error');
