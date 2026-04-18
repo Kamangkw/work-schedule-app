@@ -486,17 +486,10 @@ def export_days_off():
     """匯出用家所有放假記錄（支援 API Key 認證）"""
     # API Key 認證（用 Header: X-API-Key）
     api_key = os.environ.get("EXPORT_API_KEY")
-    debug_info = {
-        "env_EXPORT_API_KEY_set": api_key is not None,
-        "env_EXPORT_API_KEY_value": api_key if api_key else "NOT_SET",
-    }
-    
     if api_key:
-        provided_key = request.headers.get("X-API-Key")
-        debug_info["provided_key"] = provided_key
-        debug_info["match"] = provided_key == api_key
-        if provided_key != api_key:
-            return jsonify({"error": "無效 API Key", "debug": debug_info}), 403
+        provided_key = request.headers.get("X-API-Key", "").strip()
+        if provided_key != api_key.strip():
+            return jsonify({"error": "無效 API Key"}), 403
     
     user_id = get_user_id()
     if not user_id:
