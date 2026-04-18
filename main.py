@@ -404,7 +404,6 @@ def get_summary(year, month):
             off_days += 1
         elif reason:
             off_days += 1
-            work_days += 1
         else:
             work_days += 1
         d += timedelta(days=1)

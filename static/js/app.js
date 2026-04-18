@@ -155,8 +155,7 @@ async function toggleDay(d) {
         pendingToggleDate = d;
         openLeaveModal(d);
     } else {
-        // 請假（年假/補假）→ 取消
-        if (!confirm(`取消 ${d.day}日 的標記？`)) return;
+        // 請假（年假/補假）→ 直接取消
         try {
             const res = await fetch(`${API_BASE}/days-off/${d.date}`, { method: 'DELETE' });
             if (res.ok) {
