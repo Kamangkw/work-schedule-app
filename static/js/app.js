@@ -194,12 +194,8 @@ function renderMonth(key) {
         html += '<div class="calendar-day padding-cell"></div>';
     }
 
-    // 使用澳門時區計算今日
-    const now = new Date();
-    const macauOffset = 8 * 60; // GMT+8
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const macauTime = new Date(utc + (3600000 * macauOffset));
-    const todayStr = macauTime.toISOString().split('T')[0];
+    // 使用伺服器返回的今日日期（避免時區問題）
+    const todayStr = data.today;
 
     for (let d of data.days) {
         if (d.day === null) continue;

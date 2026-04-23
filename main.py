@@ -284,6 +284,7 @@ def get_calendar(year, month):
         "days": days,
         "work_days": work_days,
         "off_days": off_days,
+        "today": date.today().isoformat(),
     })
 
 
