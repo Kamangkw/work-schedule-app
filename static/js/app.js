@@ -82,22 +82,34 @@ function showApp(name) {
 
 // ===== 全年預載入 =====
 async function loadFullYear() {
-    // 先顯示 loading
+    // Step 1: 先顯示當前月（立即可用）
+    await loadCurrentMonthFirst();
+
+    // Step 2: Background 載入其他月份
+    setTimeout(() => preloadYearInBackground(), 0);
+}
+
+async function loadCurrentMonthFirst() {
+    // 立即顯示 loading 狀態
     document.getElementById('month-view').innerHTML = '<div class="loading">載入中...</div>';
 
-    // 並行 fetch 全年12個月
-    const promises = [];
-    for (let m = 1; m <= 12; m++) {
-        promises.push(fetchMonthData(currentYear, m));
-    }
-
     try {
-        await Promise.all(promises);
-        yearInitialized = true;
+        // 立即 load 當前月
+        const data = await fetchMonthData(currentYear, currentMonth);
         showMonth(currentYear, currentMonth);
     } catch (e) {
         showToast('載入失敗，請重新整理', 'error');
     }
+}
+
+async function preloadYearInBackground() {
+    const promises = [];
+    for (let m = 1; m <= 12; m++) {
+        if (m === currentMonth) continue; // 已載入
+        promises.push(fetchMonthData(currentYear, m).catch(() => {}));
+    }
+    await Promise.all(promises);
+    console.log('全年數據預載完成');
 }
 
 async function fetchMonthData(year, month) {
