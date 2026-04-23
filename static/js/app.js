@@ -287,8 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 導航按鈕
     const prevBtn = document.querySelector('.btn-nav.prev');
     const nextBtn = document.querySelector('.btn-nav.next');
-    if (prevBtn) prevBtn.addEventListener('click', () => changeMonth(-1));
-    if (nextBtn) nextBtn.addEventListener('click', () => changeMonth(1));
 });
 
 function handleDayClick(e) {
