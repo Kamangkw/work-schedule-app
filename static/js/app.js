@@ -13,16 +13,21 @@ let pendingChanges = [];
 let isLoading = false;
 const yearCache = {};
 
-// ===== LocalStorage 持久化緩存 =====
+// ===== LocalStorage 持久化緩存（每用戶分開） =====
+function getStorageKey() {
+    return STORAGE_KEY + '-' + (currentUser?.id || 'guest');
+}
+
 function saveCacheToStorage() {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(yearCache));
+        localStorage.setItem(getStorageKey(), JSON.stringify(yearCache));
     } catch (e) {}
 }
 
 function loadCacheFromStorage() {
     try {
-        const cached = localStorage.getItem(STORAGE_KEY);
+        const key = getStorageKey();
+        const cached = localStorage.getItem(key);
         if (cached) {
             Object.assign(yearCache, JSON.parse(cached));
             return true;
@@ -404,6 +409,21 @@ function selectLeave(leaveType) {
     pendingChanges = pendingChanges.filter(c => !(c.date === d.date && c.action === 'add'));
     pendingChanges.push({ date: d.date, action: 'add', leave_type: leaveType, day: d.day, year: d.year, month: d.month });
 
+    updateSaveButton();
+    closeLeaveModal();
+}
+
+function cancelDayOff() {
+    const d = pendingLeaveDate;
+    const el = pendingLeaveEl;
+
+    applyDayState(el, 'empty', null);
+    el.classList.remove('pressed');
+
+    pendingChanges = pendingChanges.filter(c => !(c.date === d.date && c.action === 'add'));
+    pendingChanges.push({ date: d.date, action: 'remove', day: d.day, year: d.year, month: d.month });
+
+    animateStats(-1, 1);
     updateSaveButton();
     closeLeaveModal();
 }
