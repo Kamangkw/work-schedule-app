@@ -152,18 +152,15 @@ function getBackgroundMonths() {
 // ===== Skeleton UI =====
 function showSkeleton() {
     const days = [];
-    // 42 cells = 6 rows x 7 days (full month possible)
     for (let i = 0; i < 42; i++) {
         days.push('<div class="skeleton-day"></div>');
     }
 
-    const weekdays = ['日','一','二','三','四','五','六'].map(d =>
-        `<div class="skeleton-weekday">${d}</div>`
-    ).join('');
-
     document.getElementById('month-view').innerHTML = `
         <div class="month-calendar skeleton">
-            <div class="skeleton-weekdays">${weekdays}</div>
+            <div class="skeleton-weekdays">
+                <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+            </div>
             <div class="skeleton-grid">${days.join('')}</div>
         </div>
     `;
