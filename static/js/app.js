@@ -114,11 +114,19 @@ async function loadCurrentMonthFirst() {
 async function preloadYearInBackground() {
     const promises = [];
     for (let m = 1; m <= 12; m++) {
-        if (m === currentMonth) continue; // 已載入
-        promises.push(fetchMonthData(currentYear, m).catch(() => {}));
+        if (m === currentMonth) continue;
+        promises.push(
+            fetchMonthData(currentYear, m)
+                .then(data => {
+                    // render呢個月並加入 DOM，但保持 hidden
+                    const monthEl = renderMonthCalendar(currentYear, m, data);
+                    monthEl.style.display = 'none';
+                    document.getElementById('month-view').appendChild(monthEl);
+                })
+                .catch(() => {})
+        );
     }
     await Promise.all(promises);
-    console.log('全年數據預載完成');
 }
 
 async function fetchMonthData(year, month) {
@@ -141,10 +149,13 @@ function showMonth(year, month) {
     const cached = yearCache[key];
 
     if (!cached || !cached.data) {
-        // 理論上唔會發生，但以防萬一
-        loadFullYear();
+        loadCurrentMonthFirst();
         return;
     }
+
+    // 清除 loading div（如果存在）
+    const loadingEl = document.querySelector('.loading');
+    if (loadingEl) loadingEl.remove();
 
     // 更新 title 和 stats
     document.getElementById('calendar-title').textContent = `${year}年${month}月`;
@@ -156,7 +167,7 @@ function showMonth(year, month) {
         el.style.display = 'none';
     });
 
-    // 顯示當前月份，如果未渲染就先渲染
+    // 顯示當前月份
     let monthEl = document.getElementById(`month-${year}-${month}`);
     if (!monthEl) {
         monthEl = renderMonthCalendar(year, month, cached.data);
