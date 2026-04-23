@@ -194,9 +194,12 @@ function renderMonth(key) {
         html += '<div class="calendar-day empty"></div>';
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    // 使用澳門時區計算今日
+    const now = new Date();
+    const macauOffset = 8 * 60; // GMT+8
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const macauTime = new Date(utc + (3600000 * macauOffset));
+    const todayStr = macauTime.toISOString().split('T')[0];
 
     for (let d of data.days) {
         if (d.day === null) continue;
