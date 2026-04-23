@@ -294,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function handleDayClick(e) {
     const dayEl = e.target.closest('.calendar-day');
-    if (!dayEl || dayEl.classList.contains('empty')) return;
+    if (!dayEl || dayEl.classList.contains('padding-cell')) return;
 
     // 即時視覺反饋 - 用 CSS 先給予狀態變化
     dayEl.classList.add('pressed');
@@ -453,7 +453,13 @@ async function saveChanges() {
                     if (dayData) {
                         if (c.action === 'add') {
                             dayData.status = c.leave_type;
-                            dayData.label = c.leave_type === 'leave_annual' ? '年假' : '補假';
+                            if (c.leave_type === 'leave_annual') {
+                                dayData.label = '年假';
+                            } else if (c.leave_type === 'leave_compensatory') {
+                                dayData.label = '補假';
+                            } else {
+                                dayData.label = '放假';
+                            }
                         } else {
                             dayData.status = 'empty';
                             dayData.label = '';
