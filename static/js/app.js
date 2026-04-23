@@ -90,13 +90,22 @@ async function loadFullYear() {
 }
 
 async function loadCurrentMonthFirst() {
-    // 立即顯示 loading 狀態
+    const key = `${currentYear}-${currentMonth}`;
+
+    // 如果已 cache，直接顯示，唔使 loading
+    if (yearCache[key] && yearCache[key].data) {
+        showMonth(currentYear, currentMonth);
+        setTimeout(() => preloadYearInBackground(), 0);
+        return;
+    }
+
+    // 未 cache，先顯示 loading
     document.getElementById('month-view').innerHTML = '<div class="loading">載入中...</div>';
 
     try {
-        // 立即 load 當前月
-        const data = await fetchMonthData(currentYear, currentMonth);
+        await fetchMonthData(currentYear, currentMonth);
         showMonth(currentYear, currentMonth);
+        setTimeout(() => preloadYearInBackground(), 0);
     } catch (e) {
         showToast('載入失敗，請重新整理', 'error');
     }
