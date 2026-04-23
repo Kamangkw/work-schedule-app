@@ -285,9 +285,13 @@ header h1 {
 }
 
 .month-calendar {
+    display: block;
+}
+
+.month-calendar.skeleton {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
+    grid-template-rows: auto 1fr;
+    gap: 8px;
 }
 
 .loading {
@@ -302,12 +306,6 @@ header h1 {
 @keyframes shimmer {
     0% { background-position: -200% 0; }
     100% { background-position: 200% 0; }
-}
-
-.month-calendar.skeleton {
-    display: grid;
-    grid-template-rows: auto 1fr;
-    gap: 8px;
 }
 
 .skeleton-weekdays {
@@ -399,12 +397,6 @@ header h1 {
 .calendar-day.today {
     border-color: #667eea;
     border-width: 3px;
-}
-
-.month-calendar {
-    display: grid;
-    grid-template-rows: auto 1fr;
-    gap: 8px;
 }
 
 .calendar-day .day-label {
