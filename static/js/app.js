@@ -11,6 +11,7 @@ let currentMonth = new Date().getMonth() + 1;
 let currentUser = null;
 let pendingChanges = [];
 let isLoading = false;
+const yearCache = {};
 
 // ===== LocalStorage 持久化緩存 =====
 function saveCacheToStorage() {
@@ -48,6 +49,9 @@ async function checkLoginStatus() {
         }
     } catch (e) {
         console.error('Login check failed', e);
+        // 如果失敗，仍然顯示app但提示需要登入
+        showApp('訪客');
+        loadCalendar();
     }
 }
 
@@ -110,15 +114,27 @@ async function loadCalendar() {
 
     // Step 2: 顯示 Skeleton UI，並行載入
     showSkeleton();
-    await Promise.all([
-        fetchMonthData(currentYear, currentMonth),
-        ...getBackgroundMonths().map(([y, m]) => fetchMonthData(y, m))
-    ]);
 
-    saveCacheToStorage();
-    renderMonth(`${currentYear}-${currentMonth}`);
-    updateHeaderStats(yearCache[`${currentYear}-${currentMonth}`].data);
-    preloadBackground();
+    try {
+        await Promise.all([
+            fetchMonthData(currentYear, currentMonth),
+            ...getBackgroundMonths().map(([y, m]) => fetchMonthData(y, m))
+        ]);
+
+        saveCacheToStorage();
+        renderMonth(`${currentYear}-${currentMonth}`);
+        updateHeaderStats(yearCache[`${currentYear}-${currentMonth}`].data);
+        preloadBackground();
+    } catch (e) {
+        console.error('Load failed:', e);
+        document.getElementById('month-view').innerHTML = `
+            <div class="loading" style="padding:60px;text-align:center;color:#888;">
+                <div style="font-size:48px;margin-bottom:16px;">😵</div>
+                <div>載入失敗</div>
+                <div style="font-size:12px;margin-top:8px;">請檢查網絡或重新整理</div>
+            </div>
+        `;
+    }
 }
 
 function getBackgroundMonths() {
@@ -264,11 +280,16 @@ function preloadBackground() {
 // ===== 觸控處理 - 即時反饋 =====
 document.addEventListener('DOMContentLoaded', () => {
     // 使用事件委託處理所有點擊
-    document.getElementById('month-view').addEventListener('click', handleDayClick);
+    const monthView = document.getElementById('month-view');
+    if (monthView) {
+        monthView.addEventListener('click', handleDayClick);
+    }
 
     // 導航按鈕
-    document.querySelector('.btn-nav.prev')?.addEventListener('click', () => changeMonth(-1));
-    document.querySelector('.btn-nav.next')?.addEventListener('click', () => changeMonth(1));
+    const prevBtn = document.querySelector('.btn-nav.prev');
+    const nextBtn = document.querySelector('.btn-nav.next');
+    if (prevBtn) prevBtn.addEventListener('click', () => changeMonth(-1));
+    if (nextBtn) nextBtn.addEventListener('click', () => changeMonth(1));
 });
 
 function handleDayClick(e) {
