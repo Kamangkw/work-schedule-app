@@ -304,11 +304,29 @@ header h1 {
     100% { background-position: 200% 0; }
 }
 
-.month-calendar.skeleton .calendar-weekdays div {
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+.month-calendar.skeleton {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 8px;
+}
+
+.skeleton-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.skeleton-weekday {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: #ccc;
+    background: linear-gradient(90deg, #f5f5f5 25%, #eee 50%, #f5f5f5 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
-    color: transparent;
     border-radius: 4px;
 }
 
@@ -324,10 +342,6 @@ header h1 {
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
     border-radius: 8px;
-}
-
-.month-calendar.skeleton {
-    display: block;
 }
 
 .calendar-day {
@@ -385,6 +399,12 @@ header h1 {
 .calendar-day.today {
     border-color: #667eea;
     border-width: 3px;
+}
+
+.month-calendar {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 8px;
 }
 
 .calendar-day .day-label {
