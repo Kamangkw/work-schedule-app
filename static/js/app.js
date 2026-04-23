@@ -1,21 +1,36 @@
 /*
  * 工作排班系統 - 前端應用程式
- * 極速版本：預先渲染所有月份，CSS toggle 切換
+ * 極致優化版：極速響應 + 優秀觸控體驗
  */
 
 const API_BASE = '/api';
+const STORAGE_KEY = 'work-schedule-cache';
 
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
 let currentUser = null;
-let pendingChanges = []; // 待存的改動
+let pendingChanges = [];
+let isLoading = false;
 
-// 全年數據緩存
-const yearCache = {}; // { "2026-4": { data, rendered } }
+// ===== LocalStorage 持久化緩存 =====
+function saveCacheToStorage() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(yearCache));
+    } catch (e) {}
+}
 
-// 是否已初始化全年
-let yearInitialized = false;
+function loadCacheFromStorage() {
+    try {
+        const cached = localStorage.getItem(STORAGE_KEY);
+        if (cached) {
+            Object.assign(yearCache, JSON.parse(cached));
+            return true;
+        }
+    } catch (e) {}
+    return false;
+}
 
+// ===== 初始化 =====
 document.addEventListener('DOMContentLoaded', () => {
     checkLoginStatus();
     document.getElementById('login-form').addEventListener('submit', handleLogin);
@@ -29,7 +44,7 @@ async function checkLoginStatus() {
         if (data) {
             currentUser = data;
             showApp(data.name);
-            loadFullYear();
+            loadCalendar();
         }
     } catch (e) {
         console.error('Login check failed', e);
@@ -54,7 +69,7 @@ async function handleLogin(e) {
         if (res.ok) {
             currentUser = data;
             showApp(data.name);
-            loadFullYear();
+            loadCalendar();
         } else {
             showToast(data.error || '登入失敗', 'error');
         }
@@ -80,55 +95,148 @@ function showApp(name) {
     document.getElementById('user-name-display').textContent = name;
 }
 
-// ===== 全年預載入 =====
-async function loadFullYear() {
-    // Step 1: 先顯示當前月（立即可用）
-    await loadCurrentMonthFirst();
-
-    // Step 2: Background 載入其他月份
-    setTimeout(() => preloadYearInBackground(), 0);
-}
-
-async function loadCurrentMonthFirst() {
-    const key = `${currentYear}-${currentMonth}`;
-
-    // 如果已 cache，直接顯示，唔使 loading
-    if (yearCache[key] && yearCache[key].data) {
-        showMonth(currentYear, currentMonth);
-        setTimeout(() => preloadYearInBackground(), 0);
-        return;
+// ===== 主載入流程 =====
+async function loadCalendar() {
+    // Step 1: 嘗試從 localStorage 恢復緩存（瞬間）
+    if (loadCacheFromStorage()) {
+        const key = `${currentYear}-${currentMonth}`;
+        if (yearCache[key]) {
+            renderMonth(key);
+            updateHeaderStats(yearCache[key].data);
+            preloadBackground();
+            return;
+        }
     }
 
-    // 未 cache，先顯示 loading
-    document.getElementById('month-view').innerHTML = '<div class="loading">載入中...</div>';
+    // Step 2: 顯示 Skeleton UI，並行載入
+    showSkeleton();
+    await Promise.all([
+        fetchMonthData(currentYear, currentMonth),
+        ...getBackgroundMonths().map(([y, m]) => fetchMonthData(y, m))
+    ]);
 
-    try {
-        await fetchMonthData(currentYear, currentMonth);
-        showMonth(currentYear, currentMonth);
-        setTimeout(() => preloadYearInBackground(), 0);
-    } catch (e) {
-        showToast('載入失敗，請重新整理', 'error');
-    }
+    saveCacheToStorage();
+    renderMonth(`${currentYear}-${currentMonth}`);
+    updateHeaderStats(yearCache[`${currentYear}-${currentMonth}`].data);
+    preloadBackground();
 }
 
-async function preloadYearInBackground() {
-    const promises = [];
+function getBackgroundMonths() {
+    const months = [];
     for (let m = 1; m <= 12; m++) {
-        if (m === currentMonth) continue;
-        promises.push(
-            fetchMonthData(currentYear, m)
-                .then(data => {
-                    // render呢個月並加入 DOM，但保持 hidden
-                    const monthEl = renderMonthCalendar(currentYear, m, data);
-                    monthEl.style.display = 'none';
-                    document.getElementById('month-view').appendChild(monthEl);
-                })
-                .catch(() => {})
-        );
+        if (m !== currentMonth) months.push([currentYear, m]);
     }
-    await Promise.all(promises);
+    // 預判：如果是12月，順便預載下年1月
+    if (currentMonth === 12) {
+        months.push([currentYear + 1, 1]);
+    }
+    return months;
 }
 
+// ===== Skeleton UI =====
+function showSkeleton() {
+    const days = [];
+    for (let i = 0; i < 35; i++) {
+        days.push('<div class="skeleton-day"></div>');
+    }
+    document.getElementById('month-view').innerHTML = `
+        <div class="month-calendar skeleton">
+            <div class="calendar-weekdays">
+                <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+            </div>
+            <div class="calendar-grid skeleton-grid">
+                ${days.join('')}
+            </div>
+        </div>
+    `;
+}
+
+// ===== 顯示月份 =====
+function renderMonth(key) {
+    const [year, month] = key.split('-').map(Number);
+    const cached = yearCache[key];
+    if (!cached || !cached.data) return;
+
+    const data = cached.data;
+
+    // 構建月份 HTML
+    let html = `
+        <div class="month-calendar" id="month-${key}">
+            <div class="calendar-weekdays">
+                <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+            </div>
+            <div class="calendar-grid">
+    `;
+
+    // 計算空白格
+    let emptyCount = 0;
+    for (let d of data.days) {
+        if (d.day === null) { emptyCount++; }
+        else { break; }
+    }
+
+    for (let i = 0; i < emptyCount; i++) {
+        html += '<div class="calendar-day empty"></div>';
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    for (let d of data.days) {
+        if (d.day === null) continue;
+        const isToday = d.date === todayStr;
+        const classes = [
+            'calendar-day',
+            d.status,
+            isToday ? 'today' : ''
+        ].filter(Boolean).join(' ');
+
+        html += `
+            <div class="${classes}"
+                 data-date="${d.date}"
+                 data-status="${d.status}"
+                 data-year="${year}"
+                 data-month="${month}"
+                 data-day="${d.day}">
+                <span>${d.day}</span>
+                ${d.label ? `<span class="day-label">${d.label}</span>` : ''}
+            </div>
+        `;
+    }
+
+    html += '</div></div>';
+    document.getElementById('month-view').innerHTML = html;
+}
+
+function updateHeaderStats(data) {
+    document.getElementById('calendar-title').textContent = `${data.year}年${data.month}月`;
+    animateNumber('stat-work', data.work_days);
+    animateNumber('stat-off', data.off_days);
+}
+
+function animateNumber(id, target) {
+    const el = document.getElementById(id);
+    const current = parseInt(el.textContent) || 0;
+    const diff = target - current;
+    if (diff === 0) return;
+
+    const duration = 300;
+    const steps = Math.abs(diff);
+    const stepTime = duration / steps;
+    let step = 0;
+
+    const timer = setInterval(() => {
+        step++;
+        el.textContent = current + (diff > 0 ? step : -step);
+        if (step >= steps) {
+            clearInterval(timer);
+            el.textContent = target;
+        }
+    }, stepTime);
+}
+
+// ===== 數據獲取 =====
 async function fetchMonthData(year, month) {
     const key = `${year}-${month}`;
     if (yearCache[key] && yearCache[key].data) {
@@ -136,150 +244,117 @@ async function fetchMonthData(year, month) {
     }
 
     const res = await fetch(`${API_BASE}/calendar/${year}/${month}`);
-    if (!res.ok) throw new Error(`Failed to fetch ${year}-${month}`);
+    if (!res.ok) throw new Error(`Failed to fetch ${key}`);
 
     const data = await res.json();
     yearCache[key] = { data, rendered: false };
     return data;
 }
 
-// ===== 顯示指定月份 - 極速切換 =====
-function showMonth(year, month) {
-    const key = `${year}-${month}`;
-    const cached = yearCache[key];
-
-    if (!cached || !cached.data) {
-        loadCurrentMonthFirst();
-        return;
-    }
-
-    // 清除 loading div（如果存在）
-    const loadingEl = document.querySelector('.loading');
-    if (loadingEl) loadingEl.remove();
-
-    // 更新 title 和 stats
-    document.getElementById('calendar-title').textContent = `${year}年${month}月`;
-    document.getElementById('stat-work').textContent = cached.data.work_days;
-    document.getElementById('stat-off').textContent = cached.data.off_days;
-
-    // 隱藏所有月份
-    document.querySelectorAll('.month-calendar').forEach(el => {
-        el.style.display = 'none';
-    });
-
-    // 顯示當前月份
-    let monthEl = document.getElementById(`month-${year}-${month}`);
-    if (!monthEl) {
-        monthEl = renderMonthCalendar(year, month, cached.data);
-        document.getElementById('month-view').appendChild(monthEl);
-    }
-
-    monthEl.style.display = 'grid';
-    cached.rendered = true;
-
-    // 清除pending
-    pendingChanges = [];
-    updateSaveButton();
+function preloadBackground() {
+    setTimeout(() => {
+        getBackgroundMonths().forEach(([y, m]) => {
+            fetchMonthData(y, m).then(data => {
+                // 悄悄 render 並緩存，不打擾主流程
+            }).catch(() => {});
+        });
+    }, 100);
 }
 
-// ===== 渲染單個月份日曆 =====
-function renderMonthCalendar(year, month, data) {
-    const container = document.createElement('div');
-    container.id = `month-${year}-${month}`;
-    container.className = 'month-calendar';
-    container.style.display = 'none';
+// ===== 觸控處理 - 即時反饋 =====
+document.addEventListener('DOMContentLoaded', () => {
+    // 使用事件委託處理所有點擊
+    document.getElementById('month-view').addEventListener('click', handleDayClick);
 
-    const fragment = document.createDocumentFragment();
+    // 導航按鈕
+    document.querySelector('.btn-nav.prev')?.addEventListener('click', () => changeMonth(-1));
+    document.querySelector('.btn-nav.next')?.addEventListener('click', () => changeMonth(1));
+});
 
-    // 計算空白格
-    let emptyCount = 0;
-    for (let d of data.days) {
-        if (d.day === null) {
-            emptyCount++;
-        } else {
-            break;
-        }
-    }
+function handleDayClick(e) {
+    const dayEl = e.target.closest('.calendar-day');
+    if (!dayEl || dayEl.classList.contains('empty')) return;
 
-    for (let i = 0; i < emptyCount; i++) {
-        const empty = document.createElement('div');
-        empty.className = 'calendar-day empty';
-        fragment.appendChild(empty);
-    }
+    // 即時視覺反饋 - 用 CSS 先給予狀態變化
+    dayEl.classList.add('pressed');
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let d of data.days) {
-        if (d.day === null) continue;
-
-        const el = document.createElement('div');
-        el.className = `calendar-day ${d.status}`;
-        el.dataset.date = d.date;
-        el.dataset.status = d.status;
-        el.dataset.year = year;
-        el.dataset.month = month;
-        el.dataset.day = d.day;
-
-        if (d.date === today.toISOString().split('T')[0]) {
-            el.classList.add('today');
-        }
-
-        el.innerHTML = `
-            <span>${d.day}</span>
-            ${d.label ? `<span class="day-label">${d.label}</span>` : ''}
-        `;
-
-        el.addEventListener('click', () => handleDayClick(el));
-        fragment.appendChild(el);
-    }
-
-    container.appendChild(fragment);
-    return container;
-}
-
-// ===== 點擊處理 =====
-function handleDayClick(el) {
-    const status = el.dataset.status;
-    const date = el.dataset.date;
-    const year = parseInt(el.dataset.year);
-    const month = parseInt(el.dataset.month);
-    const day = parseInt(el.dataset.day);
+    const status = dayEl.dataset.status;
+    const date = dayEl.dataset.date;
+    const year = parseInt(dayEl.dataset.year);
+    const month = parseInt(dayEl.dataset.month);
+    const day = parseInt(dayEl.dataset.day);
 
     if (status === 'empty') {
-        // 空白 → 放假
-        el.className = 'calendar-day off';
-        el.dataset.status = 'off';
-        el.querySelector('.day-label')?.remove();
-        el.insertAdjacentHTML('beforeend', '<span class="day-label">放假</span>');
+        applyDayState(dayEl, 'off', '放假');
         pendingChanges.push({ date, action: 'add', leave_type: 'off', day, year, month });
-        updateStatsLocal(1, -1);
+        animateStats(1, -1);
     } else if (status === 'off') {
-        // 放假 → 彈出選擇
-        openLeaveModal({ date, day, year, month }, el);
+        openLeaveModal({ date, day, year, month }, dayEl);
+        dayEl.classList.remove('pressed');
     } else {
-        // 請假 → 取消
-        el.className = 'calendar-day empty';
-        el.dataset.status = 'empty';
-        el.querySelector('.day-label')?.remove();
-        const reason = status === 'leave_annual' ? '年假' : '補假';
+        applyDayState(dayEl, 'empty', null);
         pendingChanges.push({ date, action: 'remove', day, year, month });
-        updateStatsLocal(-1, 1);
+        animateStats(-1, 1);
     }
 
     updateSaveButton();
 }
 
-function updateSaveButton() {
-    const btn = document.getElementById('save-btn');
-    const cancelBtn = document.getElementById('cancel-btn');
-    if (pendingChanges.length > 0) {
-        btn.style.display = 'block';
-        btn.textContent = `儲存改動 (${pendingChanges.length})`;
-        cancelBtn.style.display = 'block';
+function applyDayState(el, status, label) {
+    el.className = `calendar-day ${status}`;
+    el.dataset.status = status;
+    const labelEl = el.querySelector('.day-label');
+    if (label) {
+        if (labelEl) labelEl.textContent = label;
+        else el.insertAdjacentHTML('beforeend', `<span class="day-label">${label}</span>`);
     } else {
-        btn.style.display = 'none';
-        cancelBtn.style.display = 'none';
+        labelEl?.remove();
+    }
+}
+
+function animateStats(offDelta, workDelta) {
+    const statOff = document.getElementById('stat-off');
+    const statWork = document.getElementById('stat-work');
+    const offVal = Math.max(0, parseInt(statOff.textContent) + offDelta);
+    const workVal = Math.max(0, parseInt(statWork.textContent) + workDelta);
+
+    animateNumber('stat-off', offVal);
+    animateNumber('stat-work', workVal);
+}
+
+// ===== 月份切換 =====
+function changeMonth(delta) {
+    if (pendingChanges.length > 0) {
+        if (!confirm('有未儲存的改動，確定要切換月份嗎？')) return;
+    }
+
+    currentMonth += delta;
+    let needFullLoad = false;
+
+    if (currentMonth > 12) {
+        currentMonth = 1;
+        currentYear++;
+        needFullLoad = true;
+    } else if (currentMonth < 1) {
+        currentMonth = 12;
+        currentYear--;
+        needFullLoad = true;
+    }
+
+    if (needFullLoad) {
+        loadCalendar();
+    } else {
+        const key = `${currentYear}-${currentMonth}`;
+        if (yearCache[key]) {
+            renderMonth(key);
+            updateHeaderStats(yearCache[key].data);
+        } else {
+            showSkeleton();
+            fetchMonthData(currentYear, currentMonth).then(data => {
+                renderMonth(key);
+                updateHeaderStats(data);
+            });
+        }
     }
 }
 
@@ -296,6 +371,7 @@ function openLeaveModal(d, el) {
 
 function closeLeaveModal() {
     document.getElementById('leave-modal').style.display = 'none';
+    pendingLeaveEl?.classList.remove('pressed');
     pendingLeaveEl = null;
     pendingLeaveDate = null;
 }
@@ -305,12 +381,9 @@ function selectLeave(leaveType) {
     const el = pendingLeaveEl;
     const label = leaveType === 'leave_annual' ? '年假' : '補假';
 
-    el.className = `calendar-day ${leaveType}`;
-    el.dataset.status = leaveType;
-    el.querySelector('.day-label')?.remove();
-    el.insertAdjacentHTML('beforeend', `<span class="day-label">${label}</span>`);
+    applyDayState(el, leaveType, label);
+    el.classList.remove('pressed');
 
-    // 更新 pendingChanges
     pendingChanges = pendingChanges.filter(c => !(c.date === d.date && c.action === 'add'));
     pendingChanges.push({ date: d.date, action: 'add', leave_type: leaveType, day: d.day, year: d.year, month: d.month });
 
@@ -318,7 +391,20 @@ function selectLeave(leaveType) {
     closeLeaveModal();
 }
 
-// ===== 批次儲存 =====
+// ===== 儲存按鈕 =====
+function updateSaveButton() {
+    const btn = document.getElementById('save-btn');
+    const cancelBtn = document.getElementById('cancel-btn');
+    if (pendingChanges.length > 0) {
+        btn.style.display = 'block';
+        btn.textContent = `儲存改動 (${pendingChanges.length})`;
+        cancelBtn.style.display = 'block';
+    } else {
+        btn.style.display = 'none';
+        cancelBtn.style.display = 'none';
+    }
+}
+
 async function saveChanges() {
     if (pendingChanges.length === 0) return;
 
@@ -326,38 +412,43 @@ async function saveChanges() {
     btn.disabled = true;
     btn.textContent = '儲存中...';
 
+    const changesToSave = [...pendingChanges];
+
     try {
         const res = await fetch(`${API_BASE}/days-off/batch`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ changes: pendingChanges })
+            body: JSON.stringify({ changes: changesToSave })
         });
 
         if (res.ok) {
             showToast('已儲存', 'success');
+
+            // 更新本地緩存
+            for (const c of changesToSave) {
+                const key = `${c.year}-${c.month}`;
+                if (yearCache[key] && yearCache[key].data) {
+                    const dayData = yearCache[key].data.days.find(d => d.date === c.date);
+                    if (dayData) {
+                        if (c.action === 'add') {
+                            dayData.status = c.leave_type;
+                            dayData.label = c.leave_type === 'leave_annual' ? '年假' : '補假';
+                        } else {
+                            dayData.status = 'empty';
+                            dayData.label = '';
+                        }
+                    }
+                }
+            }
+
+            saveCacheToStorage();
             pendingChanges = [];
             updateSaveButton();
 
-            // 清除受影響月份的 cache，強制重新 fetch
-            const affectedMonths = new Set();
-            pendingChanges.length > 0; // 這行無意義，保留用於結構
-            for (const c of (arguments[0] || [])) {
-                affectedMonths.add(`${c.year}-${c.month}`);
-            }
-            // 重新 fetch 受影響的月份
-            await Promise.all([...affectedMonths].map(async (key) => {
-                delete yearCache[key];
-                const [y, m] = key.split('-').map(Number);
-                const data = await fetchMonthData(y, m);
-                // 更新已渲染的月份
-                const monthEl = document.getElementById(`month-${y}-${m}`);
-                if (monthEl) {
-                    monthEl.remove(); // 移除舊的，下次顯示會重新渲染
-                }
-            }));
-
-            // 重新顯示當前月份
-            showMonth(currentYear, currentMonth);
+            // 重新渲染當前月
+            const key = `${currentYear}-${currentMonth}`;
+            renderMonth(key);
+            updateHeaderStats(yearCache[key].data);
         } else {
             const err = await res.json();
             showToast(err.error || '儲存失敗', 'error');
@@ -375,51 +466,11 @@ function cancelChanges() {
     if (!confirm('確定要取消所有改動嗎？')) return;
     pendingChanges = [];
     updateSaveButton();
-    // 重新渲染當前月份
+
+    // 重新渲染以恢復原始狀態
     const key = `${currentYear}-${currentMonth}`;
-    const monthEl = document.getElementById(`month-${currentYear}-${currentMonth}`);
-    if (monthEl) {
-        monthEl.remove();
-        delete yearCache[key];
-        fetchMonthData(currentYear, currentMonth).then(data => {
-            const newEl = renderMonthCalendar(currentYear, currentMonth, data);
-            document.getElementById('month-view').appendChild(newEl);
-            newEl.style.display = 'grid';
-        });
-    }
-}
-
-// ===== 月份切換 - 極速 =====
-function changeMonth(delta) {
-    if (pendingChanges.length > 0) {
-        if (!confirm('有未儲存的改動，確定要切換月份嗎？')) return;
-    }
-
-    currentMonth += delta;
-    if (currentMonth > 12) {
-        currentMonth = 1;
-        currentYear++;
-        // 新年度需要 fetch
-        for (let m = 1; m <= 12; m++) {
-            fetchMonthData(currentYear, m).catch(() => {});
-        }
-    } else if (currentMonth < 1) {
-        currentMonth = 12;
-        currentYear--;
-        for (let m = 1; m <= 12; m++) {
-            fetchMonthData(currentYear, m).catch(() => {});
-        }
-    }
-
-    showMonth(currentYear, currentMonth);
-}
-
-// ===== 本地統計更新 =====
-function updateStatsLocal(offDelta, workDelta) {
-    const statOff = document.getElementById('stat-off');
-    const statWork = document.getElementById('stat-work');
-    statOff.textContent = Math.max(0, parseInt(statOff.textContent) + offDelta);
-    statWork.textContent = Math.max(0, parseInt(statWork.textContent) + workDelta);
+    renderMonth(key);
+    updateHeaderStats(yearCache[key].data);
 }
 
 // ===== 工具 =====
