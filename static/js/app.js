@@ -72,6 +72,9 @@ async function handleLogin(e) {
         const data = await res.json();
         if (res.ok) {
             currentUser = data;
+            // 新用戶登入，清除舊緩存（避免跨用戶數據污染）
+            yearCache = {};
+            localStorage.removeItem(STORAGE_KEY);
             showApp(data.name);
             loadCalendar();
         } else {
@@ -404,6 +407,21 @@ function selectLeave(leaveType) {
     pendingChanges = pendingChanges.filter(c => !(c.date === d.date && c.action === 'add'));
     pendingChanges.push({ date: d.date, action: 'add', leave_type: leaveType, day: d.day, year: d.year, month: d.month });
 
+    updateSaveButton();
+    closeLeaveModal();
+}
+
+function cancelDayOff() {
+    const d = pendingLeaveDate;
+    const el = pendingLeaveEl;
+
+    applyDayState(el, 'empty', null);
+    el.classList.remove('pressed');
+
+    pendingChanges = pendingChanges.filter(c => !(c.date === d.date && c.action === 'add'));
+    pendingChanges.push({ date: d.date, action: 'remove', day: d.day, year: d.year, month: d.month });
+
+    animateStats(-1, 1);
     updateSaveButton();
     closeLeaveModal();
 }
