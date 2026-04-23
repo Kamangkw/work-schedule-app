@@ -191,7 +191,7 @@ function renderMonth(key) {
     }
 
     for (let i = 0; i < emptyCount; i++) {
-        html += '<div class="calendar-day empty"></div>';
+        html += '<div class="calendar-day padding-cell"></div>';
     }
 
     // 使用澳門時區計算今日

@@ -364,13 +364,15 @@ header h1 {
     box-shadow: inset 0 2px 8px rgba(0,0,0,0.15);
 }
 
-.calendar-day.empty {
+.calendar-day.padding-cell {
     background: transparent;
     cursor: default;
 }
 
 .calendar-day.empty:active,
-.calendar-day.empty.pressed {
+.calendar-day.empty.pressed,
+.calendar-day.padding-cell:active,
+.calendar-day.padding-cell.pressed {
     transform: none;
     box-shadow: none;
 }
