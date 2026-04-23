@@ -10,6 +10,10 @@ let currentUser = null;
 let originalData = []; // 初始數據快照
 let pendingChanges = []; // 待存的改動
 
+// 月份緩存
+const monthCache = {};
+const CACHE_MAX = 3; // 最多cache 3個月
+
 document.addEventListener('DOMContentLoaded', () => {
     checkLoginStatus();
     document.getElementById('login-form').addEventListener('submit', handleLogin);
@@ -78,14 +82,26 @@ function showApp(name) {
 async function loadCalendar() {
     pendingChanges = [];
     updateSaveButton();
-    await loadMonth(currentYear, currentMonth);
+
+    // 先用cache即時顯示，再更新
+    const key = `${currentYear}-${currentMonth}`;
+    if (monthCache[key]) {
+        renderCalendar(monthCache[key]);
+    }
+
+    // fetch最新資料並渲染
+    try {
+        const data = await fetchMonthData(currentYear, currentMonth);
+        renderCalendar(data);
+        // 預載相鄰月份
+        prefetchAdjacentMonths(currentYear, currentMonth);
+    } catch (e) {
+        showToast('載入失敗', 'error');
+    }
 }
 
-async function loadMonth(year, month) {
-    const res = await fetch(`${API_BASE}/calendar/${year}/${month}`);
-    const data = await res.json();
-
-    document.getElementById('calendar-title').textContent = `${year}年${month}月`;
+function renderCalendar(data) {
+    document.getElementById('calendar-title').textContent = `${data.year}年${data.month}月`;
     document.getElementById('stat-work').textContent = data.work_days;
     document.getElementById('stat-off').textContent = data.off_days;
 
@@ -93,7 +109,9 @@ async function loadMonth(year, month) {
     originalData = data.days.map(d => ({...d}));
 
     const grid = document.getElementById('calendar-grid');
-    grid.innerHTML = '';
+
+    // 使用 DocumentFragment 批量 DOM 操作，減少 repaint
+    const fragment = document.createDocumentFragment();
 
     // 計算空白格
     let emptyCount = 0;
@@ -108,7 +126,7 @@ async function loadMonth(year, month) {
     for (let i = 0; i < emptyCount; i++) {
         const empty = document.createElement('div');
         empty.className = 'calendar-day empty';
-        grid.appendChild(empty);
+        fragment.appendChild(empty);
     }
 
     const today = new Date();
@@ -132,8 +150,12 @@ async function loadMonth(year, month) {
         `;
 
         el.addEventListener('click', () => handleDayClick(d, el));
-        grid.appendChild(el);
+        fragment.appendChild(el);
     }
+
+    // 一次性替換整個 grid 內容
+    grid.innerHTML = '';
+    grid.appendChild(fragment);
 }
 
 // ===== 點擊處理 - Optimistic UI =====
@@ -229,7 +251,9 @@ async function saveChanges() {
             showToast('已儲存', 'success');
             pendingChanges = [];
             updateSaveButton();
-            await loadMonth(currentYear, currentMonth);
+            // 清除cache，確保下次load係最新
+            delete monthCache[`${currentYear}-${currentMonth}`];
+            loadCalendar();
         } else {
             const err = await res.json();
             showToast(err.error || '儲存失敗', 'error');
@@ -247,7 +271,7 @@ function cancelChanges() {
     if (!confirm('確定要取消所有改動嗎？')) return;
     pendingChanges = [];
     updateSaveButton();
-    loadMonth(currentYear, currentMonth);
+    loadCalendar();
 }
 
 // ===== 月份切換 =====
@@ -263,7 +287,55 @@ function changeMonth(delta) {
         currentMonth = 12;
         currentYear--;
     }
-    loadMonth(currentYear, currentMonth);
+    loadCalendar();
+}
+
+// ===== 預先載入相鄰月份 =====
+async function prefetchAdjacentMonths(year, month) {
+    const adjacent = [
+        getNextMonth(year, month),
+        getPrevMonth(year, month),
+    ];
+
+    for (const [y, m] of adjacent) {
+        const key = `${y}-${m}`;
+        if (!monthCache[key]) {
+            // 後台預載，不block UI
+            fetchMonthData(y, m).catch(() => {});
+        }
+    }
+}
+
+function getNextMonth(year, month) {
+    if (month === 12) return [year + 1, 1];
+    return [year, month + 1];
+}
+
+function getPrevMonth(year, month) {
+    if (month === 1) return [year - 1, 12];
+    return [year, month - 1];
+}
+
+async function fetchMonthData(year, month) {
+    const key = `${year}-${month}`;
+    if (monthCache[key]) {
+        return monthCache[key];
+    }
+
+    const res = await fetch(`${API_BASE}/calendar/${year}/${month}`);
+    if (!res.ok) throw new Error('Failed to fetch');
+
+    const data = await res.json();
+
+    // 管理cache大小
+    const keys = Object.keys(monthCache);
+    if (keys.length >= CACHE_MAX) {
+        // 移除最舊的
+        delete monthCache[keys[0]];
+    }
+
+    monthCache[key] = data;
+    return data;
 }
 
 // ===== 本地統計更新 =====
